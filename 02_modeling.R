@@ -1,5 +1,4 @@
-
-source("setup.R")
+source("00_setup.R")
 ### open covariates data##
 covars <- load("corvariates.Rdata")
 
@@ -20,15 +19,13 @@ plot(bw)
 ## 1. Random Forest
 ##
 ##===============================================
-### randon forest###
-library(randomForest)
+
 ###RF training
 #extract data
 coordinates(obs.data)<-~x+y
 p <- obs.data
 presence = p@coords
 ##create the pseudo-absences##
-library(seegSDM)
 pop <- raster("pop_density.tif")
 pop<- crop(pop, e)
 set.seed(10)
@@ -42,7 +39,6 @@ colnames(bg) <- c('x', 'y')
 absence<- data.frame(bg)
 
 ### random forest  with spatial cross-validation
-library(SDMtune)
 covars <- stack(covars)
 # Create SWD object
 swd_data <- prepareSWD(species = "rural locations", p = presence, a = absence,
@@ -60,7 +56,7 @@ plotROC(rf_model)
 map <- predict(rf_model, data = covars, type = "cloglog")
 plot(map)
 
-library(zeallot)  # For unpacking assignment
+
 c(train, test) %<-% trainValTest(swd_data, test = 0.2, only_presence = FALSE, seed = 25)
 rf_model <- train(method = "RF", data = train, ntree=1000, nodesize=10, importance =T)
 cat("Training auc: ", auc(rf_model))
@@ -92,7 +88,6 @@ cat("Training TSS: ", tss(cv_model))
 cat("Testing TSS: ", tss(cv_model, test = TRUE))
 #Spatial Cross Validation
 # Create spatial points data frame
-library(blockCV)
 sp_df <- SpatialPointsDataFrame(swd_data@coords, data = as.data.frame(swd_data@pa), proj4string = crs(covars))
 e_folds <- envBlock(rasterLayer = covars, speciesData = sp_df, species = "swd_data@pa", k = 4, standardization = "standard", rasterBlock = FALSE, numLimit = 100)
 scv_model <- train(method = "RF", data = swd_data, fc = "l", reg = 0.8, folds = e_folds)
@@ -139,7 +134,6 @@ plot(wrld_simpl, add=TRUE, border='dark grey')
 ##save prediction raster
 writeRaster(pr, "rf_pred.tif",format = 'GTiff', overwrite = T)
 plotROC(RFfinal_model)
-library(kableExtra)
 modelReport(RFfinal_model,type = "cloglog", test = test,
              jk = TRUE, permut = 10, folder = "RF")
 
@@ -149,11 +143,6 @@ varImp(RFfinal_model)
 ## 2. Boosted regression trees - Gradient Boosted Machine (GBM)
 ##
 ##===============================================
-library(zeallot)      # data splitting 
-library(gbm)          # basic implementation
-library(xgboost)      # a faster implementation of gbm
-library(caret)        # an aggregator package for performing many machine learning models
-
 
 # Split presence locations in training (80%) and testing (20%) datasets
 datasets <- trainValTest(swd_data, test = 0.2,  seed = 345)
@@ -237,13 +226,12 @@ brtfinal_model <- train("BRT", data = merged_data, n.trees=500, learning.rate = 
 auc(brtfinal_model, test = test)
 tss(brtfinal_model, test = test)
 #predict distribution
-p <- predict(brtfinal_model, data = covars, type = "cloglog")
+pbrt <- predict(brtfinal_model, data = covars, type = "cloglog")
 
 ##plot
-plot(p, main='BRT prediction')
+plot(pbrt, main='BRT prediction')
 ##save prediction raster
-writeRaster(p, "brt_pred.tif",format = 'GTiff', overwrite = T)
-library(kableExtra)
+writeRaster(pbrt, "brt_pred.tif",format = 'GTiff', overwrite = T)
 plotROC(brtfinal_model)
 modelReport(brtfinal_model,folder = "BRT",type = "cloglog", test = test,
             response_curves = TRUE,jk = TRUE, permut = 10)
@@ -254,8 +242,6 @@ varImp(brtfinal_model)
 ## 3. Maxent
 ##
 ##===============================================
-library(SDMtune)
-library(rJava)
 dismo::maxent()
 
 covars <- stack(covars)
@@ -304,7 +290,6 @@ cat("Training TSS: ", tss(cv_model))
 cat("Testing TSS: ", tss(cv_model, test = TRUE))
 #Spatial Cross Validation
 # Create spatial points data frame
-library(blockCV)
 sp_df <- SpatialPointsDataFrame(swd_data@coords, data = as.data.frame(swd_data@pa), proj4string = crs(covars))
 e_folds <- envBlock(rasterLayer = covars, speciesData = sp_df, species = "swd_data@pa", k = 4, standardization = "standard", rasterBlock = FALSE, numLimit = 100)
 scv_model <- train(method = "Maxent", data = swd_data, folds = e_folds,fc = "lp", reg = 1, iter = 1000)
@@ -314,7 +299,6 @@ cat("Training TSS: ", tss(scv_model))
 cat("Testing TSS: ", tss(scv_model, test = TRUE))
 plotResponse(cv_model, var = "def_1k", type = "cloglog", marginal = TRUE, fun = mean, rug = TRUE)
 #tune the model hyperparameters
-library(zeallot)
 c(train, val, test) %<-% trainValTest(swd_data, val = 0.2, test = 0.2,  seed = 111)
 cat("# Training  : ", nrow(train@data))
 cat("# Validation: ", nrow(val@data))
@@ -353,7 +337,6 @@ plot(pm, main='Maxent prediction')
 writeRaster(pm, "maxent_pred.tif",format = 'GTiff', overwrite = T)
 
 maxentVarImp(maxentfinal_model)
-library(kableExtra)
 modelReport(maxentfinal_model,type = "cloglog", folder = "MaxENT", test = test,
             response_curves = TRUE, jk = TRUE, permut = 10)
 ##===============================================
@@ -362,7 +345,6 @@ modelReport(maxentfinal_model,type = "cloglog", folder = "MaxENT", test = test,
 ##
 ##===============================================
 
-library(embarcadero) 
 set.seed(12345)
 pb_xy <- rbind(presence, absence)
 pb_pred <- raster::extract(covars, pb_xy)
@@ -405,6 +387,13 @@ null_e <- evaluate(null_model2, p= pres_test, a=backg_test)
 ## 5. Ensemble model - binomial regression with hierarchical Bayesian framework
 ##
 ##================================================================================
+# stack meta-covariates
+pr <- raster("rf_pred.tif")
+pbrt <- raster("brt_pred.tif")
+pbart <- raster("bart_pred.tif")
+preds= stack(pr, pbrt, pbart)
+names(preds) = c("RandomForest","BRT","BART")
+plot(preds)
 #extract data
 coordinates(obs.data)<-~x+y
 p <- obs.data
@@ -570,7 +559,7 @@ mod.binomial.icar <- foreach (i=1:nchains, .packages="hSDM") %dopar% {
                             mubeta=0, Vbeta=1.0E6,
                             Vrho.max=10,
                             seed=seed.mcmc[i], verbose=1,
-                            save.p=1) # save probability per pixel
+                            save.p=1) ## save the post. distributions for each pixel to calculate uncertainty
   return(mod)
 }
 
@@ -598,8 +587,9 @@ pdf(file="results/binomial.iCAR_random_effects.pdf")
 plot(rho)
 dev.off()
 ## Prediction on the landscape
-prob.p.b <- subset(covars,1) ## create a raster for predictions
-values(prob.p.b)[w] <- mod.binomial.icar[[1]]$theta.pred ## assign predicted values
+prob.p.b <- subset(preds,1) ## create a raster for predictions
+#values(prob.p.b)[w] <- mod.binomial.icar[[1]]$theta.pred
+values(prob.p.b)[w] <- apply(mod.binomial.icar[[1]]$theta.pred,2,mean) ## assign predicted values
 values(prob.p.b)[!w] <- NA ## set NA where no environmental data
 ## Plot the predictions
 pdf(file="Results/binomial.icar_predictions.pdf")
@@ -611,11 +601,6 @@ dev.off()
 ## Export the results as GeoTIFF
 writeRaster(prob.p.b,filename="Results/binomial_icar_pred.tif",overwrite=TRUE)
 
-## Extract predicted probability of presence
-pa$prob.p <- extract(prob.p.b,pa.obs.data)
-
-
-
 ##===============================================
 ##
 ## Model comparison based on deviance
@@ -623,42 +608,81 @@ pa$prob.p <- extract(prob.p.b,pa.obs.data)
 ##===============================================
 
 ## Null model
-mod.ZIB.null <- foreach (i=1:nchains, .packages="hSDM") %dopar% {
-  mod <- hSDM.ZIB(presences=pa.norm$Presences,
-                  trials=pa.norm$Trials,
-                  suitability=~1,
-                  observability=~1,
-                  data=pa.norm,
-                  suitability.pred=env.df.pred.complete,
-                  burnin=2000,
-                  mcmc=2000, thin=5,
-                  beta.start=beta.start[i],
-                  gamma.start=gamma.start[i],
-                  mubeta=0, Vbeta=1.0E6,
-                  mugamma=0, Vgamma=1.0E6,
-                  seed=seed.mcmc[i], verbose=1,
-                  save.p=0)
+mod.binomial.null <- foreach (i=1:nchains, .packages="hSDM") %dopar% {
+  mod <- hSDM.binomial(presences=pa.norm$Presences,
+                       trials=pa.norm$Trials,
+                       suitability=~1,
+                       data=pa.norm,
+                       suitability.pred=env.df.pred.complete,
+                       burnin=2000,
+                       mcmc=2000, thin=5,
+                       beta.start=beta.start[i],
+                       mubeta=0, Vbeta=1.0E6,
+                       seed=seed.mcmc[i], verbose=1,
+                       save.p=0)
   return(mod)
 }
+
 ## Stop cluster
 stopCluster(clust)
 
+
 ## Extract list of MCMCs from output
-ZIB.null.mcmc <- mcmc.list(lapply(mod.ZIB.null,"[[","mcmc"))
+null.mcmc <- mcmc.list(lapply(mod.binomial.null,"[[","mcmc"))
 
 ## Deviance
-ZIB.null.stat <- summary(ZIB.null.mcmc)$statistics
-deviance.null <- ZIB.null.stat["Deviance","Mean"]
+null.stat <- summary(null.mcmc)$statistics
+deviance.null <- null.stat["Deviance","Mean"]
 
+## Full or saturated model
+w1 <- which(pa.norm$Presences>0)
+logL.full <- sum(dbinom(pa.norm$Presences[w1],pa.norm$Trials[w1],mod.binomial.null[[1]]$theta.latent[w1],log=TRUE))
+deviance.full <- -2*logL.full
 
-prob.p.null <- subset(covars,1) ## create a raster for predictions
-values(prob.p.null)[w] <- mod.ZIB.null[[1]]$prob.p.pred ## assign predicted values
-values(prob.p.null)[!w] <- NA 
-plot(prob.p.null)
+##= Table of deviance
+dev.tab <- data.frame(Model=rep(NA,4),Deviance=rep(0,4),Perc=rep(0,4))
+dev.tab$Model <- c("NULL","FULL","binomial","binomial.icar")
+dev.tab$Deviance <- c(deviance.null,deviance.full,deviance.bionomial.env,deviance.bionomial.icar)
+dev.tab$Perc <- round(100*(dev.tab$Deviance[1]-dev.tab$Deviance)/(dev.tab$Deviance[1]-dev.tab$Deviance[4]))
+##= Export
+sink(file="deviance1.txt")
+dev.tab
+sink()
+
+##= Table of deviance 2
+dev.tab <- data.frame(Model=rep(NA,3),Deviance=rep(0,3),Perc=rep(0,3))
+dev.tab$Model <- c("NULL","binomial","binomial.icar")
+dev.tab$Deviance <- c(deviance.null,deviance.bionomial.env,deviance.bionomial.icar)
+dev.tab$Perc <- round(100*(dev.tab$Deviance[1]-dev.tab$Deviance)/(dev.tab$Deviance[1]-dev.tab$Deviance[3]))
+##= Export
+sink(file="deviance2.txt")
+dev.tab
+sink()
 
 ## Extract predicted probability of presence
-pa$prob.p <- extract(prob.p.null,pa.obs.data)
+## Suitable sites
+prob.p.b<- raster("/Volumes/Soushie/results_clim/binomial_icar_pred.tif")
+pa$Suit <- 0
+pa$Suit[pa$pb>0] <- 1
+pa.obs.data <- pa[, c("x", "y")]
 
+Index.fun <- function(obs,prob.p,thresh) {
+  ## Transform probabilities into {0,1} given threshold
+  pred <- ifelse(prob.p>=thresh,1,0)
+  ## Contingency table (pred/obs)
+  n00 <- sum(pred==0 & obs==0,na.rm=TRUE)
+  n11 <- sum(pred==1 & obs==1,na.rm=TRUE)
+  n01 <- sum(pred==0 & obs==1,na.rm=TRUE)
+  n10 <- sum(pred==1 & obs==0,na.rm=TRUE)
+  ## Threshold  dependent indexes
+  OA <- (n11+n00)/(n11+n10+n00+n01) ## Overall accuracy
+  Sensitivity <- n11/(n11+n01)
+  Specificity <- n00/(n00+n10)
+  TSS <- Sensitivity+Specificity-1
+  return(list(OA=OA,TSS=TSS,Sens=Sensitivity,Spe=Specificity))
+}
+## Extract predicted probability of presence
+pa$prob.p <- raster::extract(prob.p.b,pa.obs.data)
 
 ## TSS as a function of the threshold
 OA <- vector()
@@ -673,11 +697,162 @@ for (i in 1:length(thresh.seq)) {
 ## Identifying the threshold maximizing TSS
 maxTSS <- max(TSS,na.rm=TRUE)
 maxTSS
+w.th <- which(TSS==maxTSS)
+thresh.maxTSS <- mean(thresh.seq[w.th],na.rm=TRUE)
+OA.thresh.maxTSS <- Index.fun(pa$Suit,pa$prob.p,thresh.maxTSS)$OA 
+tss.df <- data.frame(masTSS=maxTSS,OA=OA.thresh.maxTSS,prob=thresh.maxTSS)
+
+## Plot evolution of TSS with threshold
+pdf(file="TSS.pdf")
+plot(thresh.seq,TSS,type="l",xlab=c("probability threshold"),ylab="TSS")
+abline(v=thresh.maxTSS)
+dev.off()
+
+##========================================================
+##
+## Uncertainty for SDA
+##
+##========================================================
+## Function to plot the observation points on raster maps
+fun.obs <- function() {
+  plot(pa[pa$Presences==0,],pch=".",add=TRUE)
+  plot(pa[pa$Presences>0,],pch=3,add=TRUE)
+}
+## Matrix with confidence interval fo each pixel
+prob.p.quant <- apply(mod.binomial.icar[[1]]$theta.pred,2,quantile,c(0.025,0.975))
+prob.p.m <- apply(mod.binomial.icar[[1]]$theta.pred,2,mean)
+prob.p.sd <- apply(mod.binomial.icar[[1]]$theta.pred,2,sd)
+prob.p.var <- apply(mod.binomial.icar[[1]]$theta.pred,2,var)
+
+## Maps
+prob.p.025 <- prob.p.mean <- prob.p.975 <- prob.p.stddev <-prob.p.var <-subset(preds,1) ## create rasters for predictions
+## Assign predicted values
+values(prob.p.025)[w] <- prob.p.quant[1,]
+values(prob.p.mean)[w] <- prob.p.m
+values(prob.p.975)[w] <- prob.p.quant[2,]
+values(prob.p.stddev)[w] <- prob.p.sd
+## Set NA where no environmental data
+values(prob.p.025)[!w] <- values(prob.p.mean)[!w] <- values(prob.p.975)[!w] <- values(prob.p.stddev)[!w]<- NA
+uncertainty1 <- prob.p.stddev
+uncertainty2 <- prob.p.975-prob.p.025
+par(mfrow=c(3,1))
+plot(uncertainty1)
+plot(prob.p.mean)
+plot(uncertainty2)
+writeRaster(uncertainty1,filename="uncertainty1.tif",overwrite=TRUE)
+writeRaster(uncertainty2,filename="uncertainty2.tif",overwrite=TRUE)
+writeRaster(prob.p.mean,filename="prodpred_mean.tif",overwrite=TRUE)
+writeRaster(prob.p.025,filename="prodpred_025.tif",overwrite=TRUE)
+writeRaster(prob.p.975,filename="prodpred_975.tif",overwrite=TRUE)
+## Stack
+prob.p <- stack(prob.p.025,prob.p.mean,prob.p.975)
+names(prob.p) <- c("lower bound","mean","upper bound")
+## Plot the predictions
+pdf(file="prob_uncertainty.pdf",width=10,height=4)
+plot(prob.p,legend=TRUE,zlim=c(0,1),nc=3)
+dev.off()
+## Extract predicted probability of presence
+pa$prob.p.025 <- raster::extract(prob.p.025,pa.obs.data)
+pa$prob.p.mean <- raster::extract(prob.p.mean,pa.obs.data)
+pa$prob.p.975 <- raster::extract(prob.p.975,pa.obs.data)
+
+## correlation between mean probability and uncertainity
+
+rdiff <- corLocal(prob.p.mean, uncertainty2, method=c("pearson"))  #run correlation
+plot(rdiff)
+writeRaster(rdiff,filename="rdiff.tif",overwrite=TRUE)
+
+##================
+## SDA
+##================
+
+##========
+## For 025
+
+## TSS.025 as a function of the threshold
+TSS.025 <- vector()
+thresh.seq <- seq(0,1,by=0.01)
+for (i in 1:length(thresh.seq)) {
+  Index <- Index.fun(pa$Suit,pa$prob.p.025,thresh.seq[i])
+  TSS.025[i] <- Index$TSS
+}
+
+## Identifying the threshold maximizing TSS.025
+maxTSS.025 <- max(TSS.025,na.rm=TRUE)
+w.th <- which(TSS.025==maxTSS.025)
+thresh.maxTSS.025 <- mean(thresh.seq[w.th],na.rm=TRUE)
+
+## SDA.025 based on maxTSS.025
+SDA.025 <- prob.p.025
+SDA.025[SDA.025>=thresh.maxTSS.025] <- 1
+SDA.025[SDA.025<thresh.maxTSS.025] <- 0
+
+## Estimating SDA.025 area
+n.pix <- sum(values(SDA.025),na.rm=TRUE)
+area.SDA.025 <- n.pix*res(SDA.025)[1]*res(SDA.025)[2]/1.0e+6
 
 
 
+##=========
+## For mean
 
+## TSS.mean as a function of the threshold
+TSS.mean <- vector()
+thresh.seq <- seq(0,1,by=0.01)
+for (i in 1:length(thresh.seq)) {
+  Index <- Index.fun(pa$Suit,pa$prob.p.mean,thresh.seq[i])
+  TSS.mean[i] <- Index$TSS
+}
 
+## Identifying the threshold maximizing TSS.mean
+maxTSS.mean <- max(TSS.mean,na.rm=TRUE)
+w.th <- which(TSS.mean==maxTSS.mean)
+thresh.maxTSS.mean <- mean(thresh.seq[w.th],na.rm=TRUE)
 
+## SDA.mean based on maxTSS.mean
+SDA.mean <- prob.p.mean
+SDA.mean[SDA.mean>=thresh.maxTSS.mean] <- 1
+SDA.mean[SDA.mean<thresh.maxTSS.mean] <- 0
 
+## Estimating SDA.mean area
+n.pix <- sum(values(SDA.mean),na.rm=TRUE)
+area.SDA.mean <- n.pix*res(SDA.mean)[1]*res(SDA.mean)[2]/1.0e+6
 
+##========
+## For 975
+
+## TSS.975 as a function of the threshold
+TSS.975 <- vector()
+thresh.seq <- seq(0,1,by=0.01)
+for (i in 1:length(thresh.seq)) {
+  Index <- Index.fun(pa$Suit,pa$prob.p.975,thresh.seq[i])
+  TSS.975[i] <- Index$TSS
+}
+
+## Identifying the threshold maximizing TSS.975
+maxTSS.975 <- max(TSS.975,na.rm=TRUE)
+w.th <- which(TSS.975==maxTSS.975)
+thresh.maxTSS.975 <- mean(thresh.seq[w.th],na.rm=TRUE)
+
+## SDA.975 based on maxTSS.975
+SDA.975 <- prob.p.975
+SDA.975[SDA.975>=thresh.maxTSS.975] <- 1
+SDA.975[SDA.975<thresh.maxTSS.975] <- 0
+
+## Estimating SDA.975 area
+n.pix <- sum(values(SDA.975),na.rm=TRUE)
+area.SDA.975 <- n.pix*res(SDA.975)[1]*res(SDA.975)[2]/1.0e+6
+
+## Stack
+SDA <- stack(SDA.025,SDA.mean,SDA.975)
+names(SDA) <- c("lower bound","mean","upper bound")
+## Plot the predictions
+pdf(file="SDA_uncertainty.pdf",width=10,height=4)
+plot(SDA,legend=FALSE,nc=3)
+dev.off()
+
+## Export SDA results
+SDA.ci <- c(area.SDA.mean,area.SDA.025,area.SDA.975)
+SDA.df <- data.frame(SDA=SDA.ci)
+row.names(SDA.df) <- c("mean","lower","upper")
+write.table(SDA.df,file="SDA_uncertainty.txt",row.names=TRUE,sep="\t")

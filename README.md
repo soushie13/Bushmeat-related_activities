@@ -1,10 +1,7 @@
-##====================================================================================
 ## Mapping the global distribution of Bushmeat-related activities 
 ##
-## Spushieta Jagadesh <soushieta.jagadesh@ethz.ch>
+#Soushieta Jagadesh <soushieta.jagadesh@ethz.ch>
 ##
-## June 2022
+#June 2022
 ##
-##====================================================================================
-
 

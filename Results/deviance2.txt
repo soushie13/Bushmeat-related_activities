@@ -1,0 +1,6 @@
+          Model  Deviance Perc
+1          NULL 1153.8345    0
+2      binomial  373.9364   85
+3 binomial.icar  235.8740  100
+
+> maxTSS[1] 0.9411992

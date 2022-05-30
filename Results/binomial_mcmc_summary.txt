@@ -1,0 +1,40 @@
+
+Iterations = 2001:3996
+Thinning interval = 5 
+Number of chains = 2 
+Sample size per chain = 400 
+
+1. Empirical mean and standard deviation for each variable,
+   plus standard error of the mean:
+
+                     Mean     SD Naive SE Time-series SE
+beta.(Intercept)   -3.193 0.2164 0.007652        0.02186
+beta.RandomForest   4.988 0.4401 0.015560        0.07339
+beta.BRT            1.542 0.3325 0.011756        0.04243
+beta.BART          -3.966 0.5431 0.019203        0.14167
+Deviance          373.936 3.4208 0.120944        0.47145
+
+2. Quantiles for each variable:
+
+                      2.5%     25%     50%     75%   97.5%
+beta.(Intercept)   -3.6368  -3.342  -3.189  -3.048  -2.790
+beta.RandomForest   4.1493   4.693   4.965   5.286   5.825
+beta.BRT            0.9871   1.307   1.511   1.740   2.280
+beta.BART          -5.3221  -4.249  -3.904  -3.627  -2.989
+Deviance          369.9983 371.537 373.173 375.359 383.560
+
+
+ 
+ 
+Potential scale reduction factors:
+
+                  Point est. Upper C.I.
+beta.(Intercept)        1.01       1.06
+beta.RandomForest       1.04       1.05
+beta.BRT                1.07       1.11
+beta.BART               1.09       1.13
+Deviance                1.15       1.49
+
+Multivariate psrf
+
+1.09

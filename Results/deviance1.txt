@@ -1,0 +1,5 @@
+          Model  Deviance Perc
+1          NULL 1153.8345    0
+2          FULL  753.0371   44
+3      binomial  373.9364   85
+4 binomial.icar  235.8740  100

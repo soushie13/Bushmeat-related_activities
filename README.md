@@ -1,4 +1,4 @@
-## Mapping the global distribution of Bushmeat-related activities 
+## A global map of bushmeat activities to improve zoonotic spillover surveillance.
 ##
 Soushieta Jagadesh <soushieta.jagadesh@ethz.ch>
 ##
@@ -9,3 +9,5 @@ With increasing frequency of zoonotic disease emergence, the development of sust
 ##
 Global distribution of bushmeat-related activities
 ![Global distribution of bushmeat-related activities](Figure.png)
+
+This repo contains R source code used to carry out the analysis. This repo is intended to allow readers to scrutinize the methodological approaches used and also to fully reproduce the analysis. Note the bayesian hsdm model is computationally intensive and needs a 32-core machine or reduce the raster resolution to 10km. 
